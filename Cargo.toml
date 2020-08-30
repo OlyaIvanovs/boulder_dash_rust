@@ -1,0 +1,11 @@
+[package]
+name = "boulder_dash_r"
+version = "0.1.0"
+authors = ["olya <olya@ivanovs.info>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+glutin = "0.24.1"
+gl = "0.14.0"
