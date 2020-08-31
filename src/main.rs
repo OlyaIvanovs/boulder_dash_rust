@@ -8,6 +8,9 @@ use glutin::{GlProfile, GlRequest};
 use gl;
 use gl::types::*;
 
+use std::ffi::CString;
+use std::fs;
+
 fn main() {
     let el = EventLoop::new();
     let wb = WindowBuilder::new()
@@ -46,6 +49,33 @@ fn main() {
             vertices.as_ptr() as *const GLvoid,
             gl::STATIC_DRAW,
         );
+    }
+
+    // Vertex shader
+    let source = fs::read_to_string("shaders/shader.vert").unwrap();
+    let source = CString::new(source).unwrap();
+    let vert_shader_id = unsafe { gl::CreateShader(gl::VERTEX_SHADER) };
+    unsafe {
+        gl::ShaderSource(vert_shader_id, 1, &source.as_ptr(), std::ptr::null());
+        gl::CompileShader(vert_shader_id);
+    }
+
+    // Fragment shader
+    let source = fs::read_to_string("shaders/shader.frag").unwrap();
+    let source = CString::new(source).unwrap();
+    let frag_shader_id = unsafe { gl::CreateShader(gl::FRAGMENT_SHADER) };
+    unsafe {
+        gl::ShaderSource(frag_shader_id, 1, &source.as_ptr(), std::ptr::null());
+        gl::CompileShader(frag_shader_id);
+    }
+
+    // Shader program
+    let program_id = unsafe { gl::CreateProgram() };
+    unsafe {
+        gl::AttachShader(program_id, vert_shader_id);
+        gl::AttachShader(program_id, frag_shader_id);
+        gl::LinkProgram(program_id);
+        gl::UseProgram(program_id);
     }
 
     el.run(move |event, _, control_flow| {
