@@ -32,13 +32,15 @@ fn main() {
     let window_size = windowed_context.window().inner_size();
     unsafe {
         gl::Viewport(0, 0, window_size.width as i32, window_size.height as i32);
-        gl::ClearColor(0.95, 0.05, 0.05, 1.0);
+        gl::ClearColor(0.05, 0.05, 0.05, 1.0);
     }
 
     // Triangle
     let vertices: Vec<f32> = vec![
         0.0, 0.5, 0.0, 1.0, 0.0, 0.0, 0.5, -0.5, 0.0, 0.0, 1.0, 0.0, -0.5, -0.5, 0.0, 0.0, 0.0, 1.0,
     ];
+    // let vertices: Vec<f32> = vec![0.0, 0.5, 0.0, 0.5, -0.5, 0.0, -0.5, -0.5, 0.0];
+
     let mut buffer_id: GLuint = 0;
     unsafe {
         gl::GenBuffers(1, &mut buffer_id);
@@ -51,6 +53,17 @@ fn main() {
         );
     }
 
+    let mut vao_id: GLuint = 0;
+    unsafe {
+        gl::GenVertexArrays(1, &mut vao_id);
+        gl::BindVertexArray(vao_id);
+
+        gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 6 * 4, 0 as *const GLvoid);
+        gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, 6 * 4, (3 * 4) as *const GLvoid);
+        gl::EnableVertexAttribArray(0);
+        gl::EnableVertexAttribArray(1);
+    }
+
     // Vertex shader
     let source = fs::read_to_string("shaders/shader.vert").unwrap();
     let source = CString::new(source).unwrap();
@@ -58,6 +71,27 @@ fn main() {
     unsafe {
         gl::ShaderSource(vert_shader_id, 1, &source.as_ptr(), std::ptr::null());
         gl::CompileShader(vert_shader_id);
+    }
+
+    let mut success: GLint = 1;
+    unsafe {
+        gl::GetShaderiv(vert_shader_id, gl::COMPILE_STATUS, &mut success);
+    }
+    if success == 0 {
+        let mut len: GLint = 0;
+        unsafe {
+            gl::GetShaderiv(vert_shader_id, gl::INFO_LOG_LENGTH, &mut len);
+        }
+        let error = new_cstring(len as usize);
+        unsafe {
+            gl::GetShaderInfoLog(
+                vert_shader_id,
+                len,
+                std::ptr::null_mut(),
+                error.as_ptr() as *mut GLchar,
+            );
+        }
+        println!("{}", error.to_string_lossy().into_owned());
     }
 
     // Fragment shader
@@ -69,12 +103,55 @@ fn main() {
         gl::CompileShader(frag_shader_id);
     }
 
+    let mut success: GLint = 1;
+    unsafe {
+        gl::GetShaderiv(frag_shader_id, gl::COMPILE_STATUS, &mut success);
+    }
+    if success == 0 {
+        let mut len: GLint = 0;
+        unsafe {
+            gl::GetShaderiv(frag_shader_id, gl::INFO_LOG_LENGTH, &mut len);
+        }
+        let error = new_cstring(len as usize);
+        unsafe {
+            gl::GetShaderInfoLog(
+                frag_shader_id,
+                len,
+                std::ptr::null_mut(),
+                error.as_ptr() as *mut GLchar,
+            );
+        }
+        println!("{}", error.to_string_lossy().into_owned());
+    }
+
     // Shader program
     let program_id = unsafe { gl::CreateProgram() };
     unsafe {
         gl::AttachShader(program_id, vert_shader_id);
         gl::AttachShader(program_id, frag_shader_id);
         gl::LinkProgram(program_id);
+
+        let mut success: GLint = 1;
+        unsafe {
+            gl::GetProgramiv(program_id, gl::LINK_STATUS, &mut success);
+        }
+        if success == 0 {
+            let mut len: GLint = 0;
+            unsafe {
+                gl::GetProgramiv(program_id, gl::INFO_LOG_LENGTH, &mut len);
+            }
+            let error = new_cstring(len as usize);
+            unsafe {
+                gl::GetProgramInfoLog(
+                    program_id,
+                    len,
+                    std::ptr::null_mut(),
+                    error.as_ptr() as *mut GLchar,
+                );
+            }
+            println!("ERROR: {}", error.to_string_lossy().into_owned());
+        }
+
         gl::UseProgram(program_id);
     }
 
@@ -88,7 +165,8 @@ fn main() {
             } => *control_flow = ControlFlow::Exit,
             Event::MainEventsCleared => {
                 unsafe {
-                    gl::Clear(gl::COLOR_BUFFER_BIT);
+                    // gl::Clear(gl::COLOR_BUFFER_BIT);
+                    gl::DrawArrays(gl::TRIANGLES, 0, 3);
                 }
 
                 windowed_context.swap_buffers().unwrap();
@@ -96,4 +174,9 @@ fn main() {
             _ => (),
         }
     })
+}
+
+fn new_cstring(len: usize) -> CString {
+    let buffer: Vec<u8> = vec![0; len];
+    unsafe { CString::from_vec_unchecked(buffer) }
 }
