@@ -10,12 +10,13 @@ use gl::types::*;
 
 use std::ffi::CString;
 use std::fs;
+use std::time::Instant;
 
 fn main() {
     let el = EventLoop::new();
     let wb = WindowBuilder::new()
         .with_title("Boulder Dash")
-        .with_inner_size(LogicalSize::new(1024.0, 768.0));
+        .with_inner_size(LogicalSize::new(700.0, 700.0));
     let gl_request = GlRequest::Latest;
     let gl_profile = GlProfile::Core;
     let windowed_context = ContextBuilder::new()
@@ -39,7 +40,6 @@ fn main() {
     let vertices: Vec<f32> = vec![
         0.0, 0.5, 0.0, 1.0, 0.0, 0.0, 0.5, -0.5, 0.0, 0.0, 1.0, 0.0, -0.5, -0.5, 0.0, 0.0, 0.0, 1.0,
     ];
-    // let vertices: Vec<f32> = vec![0.0, 0.5, 0.0, 0.5, -0.5, 0.0, -0.5, -0.5, 0.0];
 
     let mut buffer_id: GLuint = 0;
     unsafe {
@@ -155,6 +155,13 @@ fn main() {
         gl::UseProgram(program_id);
     }
 
+    let angle_uniform_location = {
+        let name = CString::new("angle").unwrap();
+        unsafe { gl::GetUniformLocation(program_id, name.as_ptr() as *const GLchar) }
+    };
+
+    let start_time = Instant::now();
+
     el.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
 
@@ -164,8 +171,10 @@ fn main() {
                 ..
             } => *control_flow = ControlFlow::Exit,
             Event::MainEventsCleared => {
+                let angle = start_time.elapsed().as_secs_f32();
                 unsafe {
-                    // gl::Clear(gl::COLOR_BUFFER_BIT);
+                    gl::Clear(gl::COLOR_BUFFER_BIT);
+                    gl::Uniform1f(angle_uniform_location, angle);
                     gl::DrawArrays(gl::TRIANGLES, 0, 3);
                 }
 
