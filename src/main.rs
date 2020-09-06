@@ -1,3 +1,5 @@
+extern crate nalgebra_glm as glm;
+
 use glutin::dpi::LogicalSize;
 use glutin::event::{Event, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop};
@@ -162,6 +164,34 @@ fn main() {
 
     let start_time = Instant::now();
 
+    let model = glm::Mat4::identity();
+    let view = {
+        let eye = glm::vec3(-1.0, 1.0, 1.0);
+        let center = glm::vec3(0.0, 0.0, 0.0);
+        let up = glm::vec3(0.0, 1.0, 0.0);
+
+        glm::look_at(&eye, &center, &up)
+    };
+    let projection = {
+        let aspect = 4.0 / 3.0;
+        let fovy = glm::pi::<f32>() / 2.0;
+
+        glm::perspective(aspect, fovy, 0.1, 100.0)
+    };
+
+    let model_uniform_location = {
+        let name = CString::new("Model").unwrap();
+        unsafe { gl::GetUniformLocation(program_id, name.as_ptr() as *const GLchar) }
+    };
+    let view_uniform_location = {
+        let name = CString::new("View").unwrap();
+        unsafe { gl::GetUniformLocation(program_id, name.as_ptr() as *const GLchar) }
+    };
+    let projection_uniform_location = {
+        let name = CString::new("Projection").unwrap();
+        unsafe { gl::GetUniformLocation(program_id, name.as_ptr() as *const GLchar) }
+    };
+
     el.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
 
@@ -172,9 +202,17 @@ fn main() {
             } => *control_flow = ControlFlow::Exit,
             Event::MainEventsCleared => {
                 let angle = start_time.elapsed().as_secs_f32();
+                let model = glm::rotation(angle, &glm::vec3(0.0, 1.0, 0.0));
                 unsafe {
                     gl::Clear(gl::COLOR_BUFFER_BIT);
-                    gl::Uniform1f(angle_uniform_location, angle);
+                    gl::UniformMatrix4fv(model_uniform_location, 1, gl::FALSE, model.as_ptr());
+                    gl::UniformMatrix4fv(view_uniform_location, 1, gl::FALSE, view.as_ptr());
+                    gl::UniformMatrix4fv(
+                        projection_uniform_location,
+                        1,
+                        gl::FALSE,
+                        projection.as_ptr(),
+                    );
                     gl::DrawArrays(gl::TRIANGLES, 0, 3);
                 }
 
