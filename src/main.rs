@@ -14,11 +14,13 @@ use std::ffi::CString;
 use std::fs;
 use std::time::Instant;
 
+use stb_image::image::{self, LoadResult};
+
 fn main() {
     let el = EventLoop::new();
     let wb = WindowBuilder::new()
         .with_title("Boulder Dash")
-        .with_inner_size(LogicalSize::new(700.0, 700.0));
+        .with_inner_size(LogicalSize::new(1000.0, 1000.0));
     let gl_request = GlRequest::Latest;
     let gl_profile = GlProfile::Core;
     let windowed_context = ContextBuilder::new()
@@ -40,7 +42,7 @@ fn main() {
 
     // Triangle
     let vertices: Vec<f32> = vec![
-        0.0, 0.5, 0.0, 1.0, 0.0, 0.0, 0.5, -0.5, 0.0, 0.0, 1.0, 0.0, -0.5, -0.5, 0.0, 0.0, 0.0, 1.0,
+        0.0, 0.5, 0.0, 0.5, -0.5, 0.0, -0.5, -0.5, 0.0, 0.5, 1.0, 1.0, 0.0, 0.0, 0.0,
     ];
 
     let mut buffer_id: GLuint = 0;
@@ -60,10 +62,47 @@ fn main() {
         gl::GenVertexArrays(1, &mut vao_id);
         gl::BindVertexArray(vao_id);
 
-        gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 6 * 4, 0 as *const GLvoid);
-        gl::VertexAttribPointer(1, 3, gl::FLOAT, gl::FALSE, 6 * 4, (3 * 4) as *const GLvoid);
+        gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 0, 0 as *const GLvoid);
+        gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, 0, (9 * 4) as *const GLvoid);
         gl::EnableVertexAttribArray(0);
         gl::EnableVertexAttribArray(1);
+    }
+
+    // Load image
+    unsafe {
+        stb_image::stb_image::bindgen::stbi_set_flip_vertically_on_load(1);
+    }
+
+    let img = match image::load_with_depth("./bd-sprites.png", 3, false) {
+        LoadResult::ImageU8(image) => image,
+        _ => panic!("Couldnt load image"),
+    };
+
+    // Texture
+    let mut texture_id: GLuint = 0;
+    unsafe {
+        gl::GenTextures(1, &mut texture_id);
+        gl::ActiveTexture(gl::TEXTURE0);
+        gl::BindTexture(gl::TEXTURE_2D, texture_id);
+
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
+
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGB as GLint,
+            img.width as GLint,
+            img.height as GLint,
+            0,
+            gl::RGB,
+            gl::UNSIGNED_BYTE,
+            img.data.as_ptr() as *const std::ffi::c_void,
+        );
+
+        gl::GenerateMipmap(gl::TEXTURE_2D);
     }
 
     // Vertex shader
@@ -173,7 +212,7 @@ fn main() {
         glm::look_at(&eye, &center, &up)
     };
     let projection = {
-        let aspect = 4.0 / 3.0;
+        let aspect = 1.0;
         let fovy = glm::pi::<f32>() / 2.0;
 
         glm::perspective(aspect, fovy, 0.1, 100.0)
@@ -202,7 +241,8 @@ fn main() {
             } => *control_flow = ControlFlow::Exit,
             Event::MainEventsCleared => {
                 let angle = start_time.elapsed().as_secs_f32();
-                let model = glm::rotation(angle, &glm::vec3(0.0, 1.0, 0.0));
+                // let model = glm::rotation(angle, &glm::vec3(0.0, 1.0, 0.0));
+                let model = glm::rotate(&model, angle, &glm::vec3(0.0, 1.0, 0.0));
                 unsafe {
                     gl::Clear(gl::COLOR_BUFFER_BIT);
                     gl::UniformMatrix4fv(model_uniform_location, 1, gl::FALSE, model.as_ptr());
