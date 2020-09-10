@@ -40,9 +40,59 @@ fn main() {
         gl::ClearColor(0.05, 0.05, 0.05, 1.0);
     }
 
-    // Triangle
+    // Load image
+    // unsafe {
+    //     stb_image::stb_image::bindgen::stbi_set_flip_vertically_on_load(1);
+    // }
+
+    let img = match image::load_with_depth("./bd-sprites.png", 3, false) {
+        LoadResult::ImageU8(image) => image,
+        _ => panic!("Couldnt load image"),
+    };
+
+    // Texture
+    let mut texture_id: GLuint = 0;
+    unsafe {
+        gl::GenTextures(1, &mut texture_id);
+        gl::ActiveTexture(gl::TEXTURE0);
+        gl::BindTexture(gl::TEXTURE_2D, texture_id);
+
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGB as GLint,
+            img.width as GLint,
+            img.height as GLint,
+            0,
+            gl::RGB,
+            gl::UNSIGNED_BYTE,
+            img.data.as_ptr() as *const std::ffi::c_void,
+        );
+
+        gl::GenerateMipmap(gl::TEXTURE_2D);
+    }
+
+    // Quad
+    let right = 32.0 / img.width as f32;
+    let bottom = 32.0 / img.height as f32;
+
+    println!("right {}, bottom {}", right, bottom);
+
+    #[rustfmt::skip]
     let vertices: Vec<f32> = vec![
-        0.0, 0.5, 0.0, 0.5, -0.5, 0.0, -0.5, -0.5, 0.0, 0.5, 1.0, 1.0, 0.0, 0.0, 0.0,
+        // Position        // Texcoords
+        -0.5, 0.5, 0.0,    0.0, 0.0,  
+        0.5, -0.5, 0.0,    right, bottom, 
+        -0.5, -0.5, 0.0,   0.0, bottom,
+
+        -0.5, 0.5, 0.0,    0.0, 0.0, 
+        0.5, 0.5, 0.0,     right, 0.0, 
+        0.5, -0.5, 0.0,    right, bottom,
     ];
 
     let mut buffer_id: GLuint = 0;
@@ -62,47 +112,10 @@ fn main() {
         gl::GenVertexArrays(1, &mut vao_id);
         gl::BindVertexArray(vao_id);
 
-        gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 0, 0 as *const GLvoid);
-        gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, 0, (9 * 4) as *const GLvoid);
+        gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 5 * 4, 0 as *const GLvoid);
+        gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, 5 * 4, (3 * 4) as *const GLvoid);
         gl::EnableVertexAttribArray(0);
         gl::EnableVertexAttribArray(1);
-    }
-
-    // Load image
-    unsafe {
-        stb_image::stb_image::bindgen::stbi_set_flip_vertically_on_load(1);
-    }
-
-    let img = match image::load_with_depth("./bd-sprites.png", 3, false) {
-        LoadResult::ImageU8(image) => image,
-        _ => panic!("Couldnt load image"),
-    };
-
-    // Texture
-    let mut texture_id: GLuint = 0;
-    unsafe {
-        gl::GenTextures(1, &mut texture_id);
-        gl::ActiveTexture(gl::TEXTURE0);
-        gl::BindTexture(gl::TEXTURE_2D, texture_id);
-
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
-
-        gl::TexImage2D(
-            gl::TEXTURE_2D,
-            0,
-            gl::RGB as GLint,
-            img.width as GLint,
-            img.height as GLint,
-            0,
-            gl::RGB,
-            gl::UNSIGNED_BYTE,
-            img.data.as_ptr() as *const std::ffi::c_void,
-        );
-
-        gl::GenerateMipmap(gl::TEXTURE_2D);
     }
 
     // Vertex shader
@@ -205,7 +218,7 @@ fn main() {
 
     let model = glm::Mat4::identity();
     let view = {
-        let eye = glm::vec3(-1.0, 1.0, 1.0);
+        let eye = glm::vec3(0.0, 0.0, 1.0);
         let center = glm::vec3(0.0, 0.0, 0.0);
         let up = glm::vec3(0.0, 1.0, 0.0);
 
@@ -240,9 +253,9 @@ fn main() {
                 ..
             } => *control_flow = ControlFlow::Exit,
             Event::MainEventsCleared => {
-                let angle = start_time.elapsed().as_secs_f32();
+                // let angle = start_time.elapsed().as_secs_f32();
                 // let model = glm::rotation(angle, &glm::vec3(0.0, 1.0, 0.0));
-                let model = glm::rotate(&model, angle, &glm::vec3(0.0, 1.0, 0.0));
+                // let model = glm::rotate(&model, angle, &glm::vec3(0.0, 1.0, 0.0));
                 unsafe {
                     gl::Clear(gl::COLOR_BUFFER_BIT);
                     gl::UniformMatrix4fv(model_uniform_location, 1, gl::FALSE, model.as_ptr());
@@ -253,7 +266,7 @@ fn main() {
                         gl::FALSE,
                         projection.as_ptr(),
                     );
-                    gl::DrawArrays(gl::TRIANGLES, 0, 3);
+                    gl::DrawArrays(gl::TRIANGLES, 0, 6);
                 }
 
                 windowed_context.swap_buffers().unwrap();
